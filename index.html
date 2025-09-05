@@ -1,12 +1,66 @@
 <!doctype html>
 <html lang="es">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Evolution Bot Panel</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
-  </body>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>WhatsBot — Frontend mínimo</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <header>
+    <h1>WhatsBot — Frontend mínimo</h1>
+  </header>
+
+  <section class="config">
+    <div class="row">
+      <label>
+        Backend URL
+        <input id="backendUrl" type="text" placeholder="https://tu-backend.railway.app" />
+      </label>
+      <label>
+        Instance ID
+        <input id="instance" type="text" placeholder="7D9D4...A578E" />
+      </label>
+      <label>
+        Remote JID / Número
+        <input id="remoteJid" type="text" placeholder="549xxxxxxxxx@s.whatsapp.net" />
+      </label>
+    </div>
+    <div class="row">
+      <button id="btnSaveCfg">Guardar</button>
+      <button id="btnLoadChats">Cargar chats</button>
+      <label class="inline">
+        <input id="enableRealtime" type="checkbox" />
+        Realtime (Socket.IO)
+      </label>
+      <span id="realtimeStatus" class="hint"></span>
+    </div>
+  </section>
+
+  <main>
+    <aside>
+      <h3>Chats</h3>
+      <ul id="chatList"></ul>
+    </aside>
+
+    <section class="thread">
+      <div id="messages" class="messages"></div>
+      <form id="composer" class="composer">
+        <input id="text" type="text" placeholder="Escribe un mensaje…" />
+        <button>Enviar</button>
+      </form>
+    </section>
+  </main>
+
+  <footer>
+    <small>
+      Tip: los endpoints esperados del backend son
+      <code>GET /api/chats?instance=</code>,
+      <code>GET /api/messages?instance=&amp;remoteJid=&amp;limit=</code> y
+      <code>POST /api/send</code>.
+    </small>
+  </footer>
+
+  <script src="./script.js"></script>
+</body>
 </html>
