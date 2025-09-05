@@ -1,3 +1,5 @@
+//frontend/components/MessageThread.jsx
+
 'use client';
 import { extractText } from '../utils/format';
 

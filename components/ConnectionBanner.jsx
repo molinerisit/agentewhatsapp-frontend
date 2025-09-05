@@ -1,3 +1,5 @@
+//frontend/components/ConnectionBanner.jsx
+
 'use client';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../lib/api';
@@ -24,7 +26,8 @@ export default function ConnectionBanner({ state, qr, instance, onRefresh }) {
     return localQr || qr || state?.qrcode || state?.code || state?.base64 || state?.qr || null;
   }, [localQr, qr, state]);
 
-  const pairing = state?.pairingCode || state?.pairing?.code || null;
+  const pairing = pairingManual || state?.pairingCode || state?.pairing?.code || null;
+
 
   // Normalizamos lo que venga
   const { dataUrl, content } = useMemo(() => normalizeQrData(rawQr), [rawQr]);
@@ -57,8 +60,15 @@ export default function ConnectionBanner({ state, qr, instance, onRefresh }) {
     try {
       // Solo pedimos un QR y lo mostramos (NO llamamos onRefresh inmediatamente)
       const res = await api.connect(instance);
-      // Guardamos el QR que devolvió /connect para no perderlo si llega otro evento
-      setLocalQr(res?.code || res?.pairingCode || null);
+// solo QR real en localQr
+setLocalQr(res?.code || null);
+// guarda pairing por separado (NO como QR)
+if (res?.pairingCode) {
+  // pegá esto junto a los useState de arriba:
+  // const [pairingManual, setPairingManual] = useState(null);
+  setPairingManual(res.pairingCode.toString());
+}
+
     } catch (e) {
       console.error(e);
     } finally {

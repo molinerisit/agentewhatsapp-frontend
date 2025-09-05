@@ -1,3 +1,5 @@
+//frontend/components/ChatList.jsx
+
 'use client';
 
 export default function ChatList({ chats = [], activeJid, onSelect }) {

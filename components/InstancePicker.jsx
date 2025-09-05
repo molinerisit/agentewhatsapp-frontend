@@ -1,3 +1,5 @@
+//frontend/components/InstancePicker.jsx
+
 'use client';
 
 export default function InstancePicker({ instances = [], value, onChange }) {

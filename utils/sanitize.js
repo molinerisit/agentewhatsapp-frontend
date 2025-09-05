@@ -1,3 +1,4 @@
+//frontend/utils/sanitize.js
 // Convierte posibles variantes de QR a un Data URL válido (si ya viene como imagen)
 // y expone el "contenido" del QR si no es imagen (para generarlo en el cliente).
 export function normalizeQrData(input) {

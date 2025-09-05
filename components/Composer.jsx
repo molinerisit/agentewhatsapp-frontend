@@ -1,3 +1,5 @@
+//frontend/components/Composer.jsx
+
 'use client';
 import { useState } from 'react';
 
