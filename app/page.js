@@ -8,7 +8,10 @@ import ChatList from '../components/ChatList';
 import MessageThread from '../components/MessageThread';
 import Composer from '../components/Composer';
 
-// helpers de fetch locales para poder usar fresh=1 sin tocar lib/api.js
+/* ============================ */
+/* Helpers de fetch y normalización */
+/* ============================ */
+
 const BASE = process.env.NEXT_PUBLIC_BACKEND_URL;
 const KEY  = process.env.NEXT_PUBLIC_BACKEND_KEY;
 
@@ -38,9 +41,20 @@ const api = {
     req('/api/messages/send', { method: 'POST', body: { instance, number, text } }),
 };
 
+function normalizeList(x) {
+  if (Array.isArray(x)) return x;
+  if (Array.isArray(x?.chats)) return x.chats;
+  if (Array.isArray(x?.data)) return x.data;
+  if (Array.isArray(x?.items)) return x.items;
+  return [];
+}
+
+/* ============================ */
+
 export default function Home() {
   const [instances, setInstances] = useState([]);
   const [instance, setInstance] = useState('');
+
   const [state, setState] = useState(null);
   const [connected, setConnected] = useState(false);
   const [qr, setQr] = useState(null);
@@ -52,19 +66,16 @@ export default function Home() {
 
   const socketRef = useRef(null);
 
-  // Cargar lista de instancias (sin pisar la lista si llega vacía/500)
+  // Cargar lista de instancias (sin pisar estado si viene vacío/500)
   const loadInstances = async () => {
     try {
       const data = await api.instances();
-      const arr = Array.isArray(data) ? data : (data?.instances || data?.data || []);
-      if (arr && arr.length) {
-        setInstances(arr);
-      } else {
-        console.warn('[instances] vacío, conservo listado previo');
-      }
+      const arr = normalizeList(data);
+      if (arr.length) setInstances(arr);
+      else console.warn('[instances] vacío, conservo listado previo');
     } catch (e) {
       console.error('[instances ERROR]', e);
-      // No tocar setInstances() en caso de error para no perder selección
+      // no tocar setInstances() para no perder selección
     }
   };
 
@@ -72,7 +83,7 @@ export default function Home() {
     loadInstances();
   }, []);
 
-  // Al elegir instancia: pedir estado con fresh=1 y, si conecta, cargar inbox
+  // Al elegir instancia: pedir estado (fresh=1), si conecta cargar inbox; setear socket con fallback
   useEffect(() => {
     if (!instance) return;
 
@@ -86,7 +97,7 @@ export default function Home() {
 
         if (ok) {
           const list = await api.findChats(instance);
-          const arr = Array.isArray(list) ? list : (list?.chats || list?.data || []);
+          const arr = normalizeList(list);
           setChats(arr);
           if (!activeJid && arr.length) {
             const first = arr[0];
@@ -98,36 +109,42 @@ export default function Home() {
         console.error('[connection initial ERROR]', e);
       }
 
-      // Cargar chats (aunque no esté conectado aún, por si Evolution ya los tiene)
+      // Intentar cargar chats igual (puede traer algo aunque aún no esté conectado)
       try {
         const list = await api.findChats(instance);
-        const arr = Array.isArray(list) ? list : (list?.chats || list?.data || []);
+        const arr = normalizeList(list);
         setChats(arr);
       } catch (e) {
         console.error('[findChats initial ERROR]', e);
       }
     })();
 
-    // Conectar socket.io para eventos Evolution
+    // Socket.io con fallback a polling (Railway/proxies pueden cortar WS)
     if (socketRef.current) {
       try { socketRef.current.disconnect(); } catch {}
     }
-    const socket = io(BASE, { transports: ['websocket'] });
+    const socket = io(BASE, {
+      transports: ['websocket', 'polling'],
+      path: '/socket.io',
+      reconnection: true,
+      reconnectionAttempts: 10,
+      reconnectionDelay: 1000,
+      timeout: 10000,
+      withCredentials: false
+    });
     socketRef.current = socket;
     socket.emit('join', { instance });
 
     socket.on('evolution_event', async ({ event, payload }) => {
-      // Estado de conexión: normalizamos
       if (event === 'CONNECTION_UPDATE') {
         setState(payload);
         const s = (payload?.state || payload?.instance?.state || '').toString().toLowerCase();
         const ok = payload?.connected === true || s === 'open' || s === 'connected';
         setConnected(ok);
-        // Si se conectó recién ahora → cargar inbox
         if (ok) {
           try {
             const list = await api.findChats(instance);
-            const arr = Array.isArray(list) ? list : (list?.chats || list?.data || []);
+            const arr = normalizeList(list);
             setChats(arr);
             if (!activeJid && arr.length) {
               const first = arr[0];
@@ -161,10 +178,7 @@ export default function Home() {
   useEffect(() => {
     if (!instance || !activeJid) return;
     api.findMessages(instance, activeJid, 50)
-      .then(data => {
-        const arr = Array.isArray(data) ? data : (data?.messages || data?.data || []);
-        setMessages(arr);
-      })
+      .then(data => setMessages(normalizeList(data)))
       .catch(console.error);
   }, [instance, activeJid]);
 
@@ -195,7 +209,7 @@ export default function Home() {
               setPairing(pc ? String(pc) : null);
               if (ok) {
                 const list = await api.findChats(name);
-                const arr = Array.isArray(list) ? list : (list?.chats || list?.data || []);
+                const arr = normalizeList(list);
                 setChats(arr);
                 if (arr.length) {
                   const first = arr[0];
@@ -222,6 +236,7 @@ export default function Home() {
             chats={chats}
             activeJid={activeJid}
             onSelect={(jid) => {
+              if (!jid) return;
               setActiveJid(jid);
               setMessages([]);
             }}
@@ -246,9 +261,8 @@ export default function Home() {
               setPairing(pc ? String(pc) : null);
               if (ok) {
                 const list = await api.findChats(instance);
-                const arr = Array.isArray(list) ? list : (list?.chats || list?.data || []);
+                const arr = normalizeList(list);
                 setChats(arr);
-                // si no hay activo, abrir primero
                 if (!activeJid && arr.length) {
                   const first = arr[0];
                   const jid = first?.id || first?.jid || first?.remoteJid || first?.chatId;
