@@ -22,19 +22,25 @@ export default function Home() {
     api.instances().then(setInstances).catch(console.error);
   }, []);
 
-  // conectar socket al elegir instancia
+  // conectar socket y cargar datos al elegir instancia
   useEffect(() => {
     if (!instance) return;
+
     (async () => {
       try {
         const { state: st, qr: q } = await api.connection(instance);
-        setState(st); setQr(q || null);
-      } catch (e) { console.error(e); }
+        setState(st);
+        setQr(q || null);
+      } catch (e) {
+        console.error(e);
+      }
       try {
         const list = await api.findChats(instance);
         const arr = Array.isArray(list) ? list : (list?.chats || list?.data || []);
         setChats(arr);
-      } catch (e) { console.error(e); }
+      } catch (e) {
+        console.error(e);
+      }
     })();
 
     const socket = io(process.env.NEXT_PUBLIC_BACKEND_URL, { transports: ['websocket'] });
@@ -73,24 +79,49 @@ export default function Home() {
 
   const onSend = async (text) => {
     if (!instance || !activeJid) return;
-    // Para enviar a chat privado/grupo podés usar remoteJid como "number"
     await api.sendText(instance, activeJid, text);
-    // optimista: agregar a UI
-    setMessages(prev => [...prev, { key: { id: `tmp-${Date.now()}`, remoteJid: activeJid, fromMe: true }, message: { conversation: text } }]);
+    // optimista
+    setMessages(prev => [
+      ...prev,
+      { key: { id: `tmp-${Date.now()}`, remoteJid: activeJid, fromMe: true }, message: { conversation: text } }
+    ]);
   };
 
   return (
     <div className="h-screen grid grid-cols-12 gap-3 p-3">
       <div className="col-span-3 flex flex-col">
         <div className="mb-3">
-          <InstancePicker instances={instances} value={instance} onChange={setInstance} />
+          <InstancePicker instances={instances} value={instance} onChange={(v) => {
+            setInstance(v);
+            setActiveJid(null);
+            setMessages([]);
+          }} />
         </div>
-        <div className="flex-1 min-h-0"><ChatList chats={chats} activeJid={activeJid} onSelect={setActiveJid} /></div>
+        <div className="flex-1 min-h-0">
+          <ChatList chats={chats} activeJid={activeJid} onSelect={(jid) => {
+            setActiveJid(jid);
+            setMessages([]);
+          }} />
+        </div>
       </div>
 
       <div className="col-span-9 flex flex-col min-h-0">
-        <ConnectionBanner state={state} qr={qr} />
-        <div className="flex-1 min-h-0"><MessageThread messages={messages} /></div>
+        <ConnectionBanner
+          state={state}
+          qr={qr}
+          instance={instance}
+          onRefresh={async () => {
+            if (!instance) return;
+            try {
+              const { state: st, qr: q } = await api.connection(instance);
+              setState(st);
+              setQr(q || null);
+            } catch (e) { console.error(e); }
+          }}
+        />
+        <div className="flex-1 min-h-0">
+          <MessageThread messages={messages} />
+        </div>
         <Composer onSend={onSend} disabled={!instance || !activeJid} />
       </div>
     </div>
