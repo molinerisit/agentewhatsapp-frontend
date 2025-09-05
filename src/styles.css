@@ -1,0 +1,19 @@
+*{box-sizing:border-box}body{margin:0;font-family:system-ui,Segoe UI,Roboto,Helvetica,Arial}
+header{display:flex;gap:12px;align-items:center;padding:12px;border-bottom:1px solid #eee}
+.container{display:grid;grid-template-columns:280px 1fr; height:calc(100vh - 56px)}
+.sidebar{border-right:1px solid #eee;overflow:auto}
+.content{display:flex;flex-direction:column}
+.toolbar{padding:8px;border-bottom:1px solid #eee;display:flex;gap:8px}
+.list{list-style:none;margin:0;padding:0}
+.list li{padding:10px 12px;border-bottom:1px solid #f1f1f1;cursor:pointer}
+.list li.active{background:#f5f9ff}
+.chat{flex:1;display:flex;flex-direction:column}
+.messages{flex:1;overflow:auto;padding:12px;display:flex;flex-direction:column;gap:8px}
+.msg{max-width:70%;padding:8px 10px;border-radius:8px}
+.me{align-self:flex-end;background:#dcf8c6}
+.them{align-self:flex-start;background:#fff;border:1px solid #eee}
+.composer{display:flex;gap:8px;padding:10px;border-top:1px solid #eee}
+input,button,select{padding:8px 10px;border:1px solid #ddd;border-radius:8px}
+button{cursor:pointer}
+.badge{padding:2px 8px;border-radius:999px;background:#eee;font-size:12px}
+.qr{display:flex;align-items:center;justify-content:center;padding:20px}

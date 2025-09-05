@@ -1,20 +1,13 @@
-# Frontend (sin Tailwind) – Evolution WhatsApp Inbox
+# Evolution Bot Frontend (Vite + React)
 
-## Configuración
-1. Copiá `.env.example` a `.env.local` y completá:
-```
-NEXT_PUBLIC_BACKEND_URL=https://tu-backend.railway.app
-NEXT_PUBLIC_BACKEND_KEY=tu-clave-backend
-```
-2. Instalar y arrancar:
-```
-npm i
+Panel mínimo para manejar instancias, ver QR, listar chats, abrir hilos y enviar mensajes.
+
+## Arranque
+
+```bash
+npm install
 npm run dev
 ```
-3. Primer uso:
-- Creá instancia con el botón **Crear + QR**.
-- Si WhatsApp te ofrece **Vincular con número de teléfono**, ingresá el **Pairing Code** mostrado en el banner.
-- Si usa QR, escanealo desde **Dispositivos vinculados**.
 
-> Este front espera que el backend exponga los endpoints `/api/...` tal como en tu server Express.
-
+El servidor de desarrollo proxyea `/api` hacia `http://localhost:4000`.
+Asegurate de levantar el backend primero o cambiá el proxy en `vite.config.js`.
