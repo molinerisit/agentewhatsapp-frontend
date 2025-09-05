@@ -1,10 +1,28 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
-import { api } from '../lib/api';
 import { normalizeQrData } from '../utils/sanitize';
 import QRCode from 'qrcode';
 
-export default function ConnectionBanner({ state, qr, pairingManual, instance, onRefresh }) {
+const BASE = process.env.NEXT_PUBLIC_BACKEND_URL;
+const KEY  = process.env.NEXT_PUBLIC_BACKEND_KEY;
+
+async function req(path, { method = 'GET', body } = {}) {
+  const headers = { 'x-backend-key': KEY, 'Content-Type': 'application/json' };
+  const res = await fetch(`${BASE}${path}`, {
+    method,
+    headers,
+    body: body ? JSON.stringify(body) : undefined,
+    cache: 'no-store'
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+
+async function connectApi(instance) {
+  return req(`/api/instance/${encodeURIComponent(instance)}/connect`);
+}
+
+export default function ConnectionBanner({ state, connected, qr, pairingManual, instance, onRefresh }) {
   const [loading, setLoading] = useState(false);
   const [connecting, setConnecting] = useState(false);
   const [localQr, setLocalQr] = useState(null);
@@ -15,7 +33,7 @@ export default function ConnectionBanner({ state, qr, pairingManual, instance, o
     setPairing(pairingManual || null);
   }, [pairingManual]);
 
-  const connected = !!state?.connected;
+  // Si ya estamos conectados, limpiamos QR local
   useEffect(() => {
     if (connected) {
       setLocalQr(null);
@@ -23,12 +41,13 @@ export default function ConnectionBanner({ state, qr, pairingManual, instance, o
     }
   }, [connected]);
 
+  // Preferencias: localQr (si existe) > prop qr > posibles campos en state
   const rawQr = useMemo(() => {
     return localQr || qr || state?.qrcode || state?.code || state?.base64 || state?.qr || null;
   }, [localQr, qr, state]);
 
+  // Normalizamos lo que venga y, si es texto, generamos PNG
   const { dataUrl, content } = useMemo(() => normalizeQrData(rawQr), [rawQr]);
-
   useEffect(() => {
     let mounted = true;
     (async () => {
@@ -54,16 +73,16 @@ export default function ConnectionBanner({ state, qr, pairingManual, instance, o
     setConnecting(true);
     setLoading(true);
     try {
-      const res = await api.connect(instance);
+      const res = await connectApi(instance);
       // Solo QR real en localQr
       setLocalQr(res?.code || null);
-      // Pairing code guardado por separado
+      // Pairing code guardado por separado (NO como QR)
       if (res?.pairingCode) setPairing(String(res.pairingCode));
     } catch (e) {
       console.error(e);
     } finally {
       setLoading(false);
-      setTimeout(() => setConnecting(false), 1500);
+      setTimeout(() => setConnecting(false), 1200);
     }
   };
 
