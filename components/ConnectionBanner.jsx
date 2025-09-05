@@ -1,12 +1,18 @@
 'use client';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { api } from '../lib/api';
+import { normalizeQrData } from '../utils/sanitize';
 
 export default function ConnectionBanner({ state, qr, instance, onRefresh }) {
   const [loading, setLoading] = useState(false);
   const connected = !!state?.connected;
-  const pairing = state?.pairingCode || state?.pairing?.code; // a veces viene así
-  const showQR = qr || state?.qrcode || state?.code;          // distintos campos posibles
+  const pairing = state?.pairingCode || state?.pairing?.code || null;
+
+  // Aceptamos cualquier variante: prop qr, o campos comunes de state
+  const rawQr = qr || state?.qrcode || state?.code || state?.base64 || null;
+
+  // Normalizamos a data:image/png;base64,...
+  const imgSrc = useMemo(() => normalizeQrData(rawQr), [rawQr]);
 
   const doConnect = async () => {
     if (!instance) return;
@@ -53,7 +59,6 @@ export default function ConnectionBanner({ state, qr, instance, onRefresh }) {
               Escaneá el QR o ingresá el pairing code desde WhatsApp → Dispositivos vinculados.
             </p>
 
-            {/* Pairing code (numérico) si viene */}
             {pairing && (
               <div className="text-sm font-mono mb-2 bg-black/20 inline-block px-2 py-1 rounded">
                 Pairing Code: <span className="font-bold">{pairing}</span>
@@ -77,13 +82,20 @@ export default function ConnectionBanner({ state, qr, instance, onRefresh }) {
                 {loading ? 'Actualizando…' : 'Refrescar estado'}
               </button>
             </div>
+
+            {/* Si el QR no es válido como imagen, mostramos un aviso */}
+            {!imgSrc && rawQr && (
+              <div className="mt-2 text-xs opacity-80">
+                QR recibido pero no es imagen renderizable. Probá “Generar/Actualizar QR” nuevamente o usá el Pairing Code.
+              </div>
+            )}
           </div>
 
-          {/* QR si viene en base64 */}
-          {showQR && (
+          {/* QR si está en formato de imagen válida */}
+          {imgSrc && (
             <img
               alt="QR"
-              src={`data:image/png;base64,${showQR}`}
+              src={imgSrc}
               className="ml-auto w-40 h-40 rounded bg-white"
             />
           )}
