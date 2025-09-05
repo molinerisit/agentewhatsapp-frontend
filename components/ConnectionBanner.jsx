@@ -1,18 +1,41 @@
 'use client';
-import { useState, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { api } from '../lib/api';
 import { normalizeQrData } from '../utils/sanitize';
+import QRCode from 'qrcode';
 
 export default function ConnectionBanner({ state, qr, instance, onRefresh }) {
   const [loading, setLoading] = useState(false);
   const connected = !!state?.connected;
   const pairing = state?.pairingCode || state?.pairing?.code || null;
 
-  // Aceptamos cualquier variante: prop qr, o campos comunes de state
-  const rawQr = qr || state?.qrcode || state?.code || state?.base64 || null;
+  // Aceptamos cualquier variante posible que pueda venir
+  const rawQr = qr || state?.qrcode || state?.code || state?.base64 || state?.qr || null;
 
-  // Normalizamos a data:image/png;base64,...
-  const imgSrc = useMemo(() => normalizeQrData(rawQr), [rawQr]);
+  // Normalizamos: si ya es imagen -> dataUrl; si no -> content
+  const { dataUrl, content } = useMemo(() => normalizeQrData(rawQr), [rawQr]);
+
+  // Si no hay dataUrl pero sí "content", generamos PNG en cliente
+  const [generatedUrl, setGeneratedUrl] = useState(null);
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      if (!dataUrl && content) {
+        try {
+          const url = await QRCode.toDataURL(content, { margin: 1, errorCorrectionLevel: 'M' });
+          if (mounted) setGeneratedUrl(url);
+        } catch (err) {
+          console.error('QR generate error:', err);
+          if (mounted) setGeneratedUrl(null);
+        }
+      } else {
+        setGeneratedUrl(null);
+      }
+    })();
+    return () => { mounted = false; };
+  }, [dataUrl, content]);
+
+  const imgSrc = dataUrl || generatedUrl || null;
 
   const doConnect = async () => {
     if (!instance) return;
@@ -83,15 +106,18 @@ export default function ConnectionBanner({ state, qr, instance, onRefresh }) {
               </button>
             </div>
 
-            {/* Si el QR no es válido como imagen, mostramos un aviso */}
             {!imgSrc && rawQr && (
               <div className="mt-2 text-xs opacity-80">
-                QR recibido pero no es imagen renderizable. Probá “Generar/Actualizar QR” nuevamente o usá el Pairing Code.
+                Recibimos el QR pero no como imagen; intentando generarlo…
+              </div>
+            )}
+            {!imgSrc && !rawQr && (
+              <div className="mt-2 text-xs opacity-80">
+                No hay QR disponible todavía. Probá “Generar/Actualizar QR”.
               </div>
             )}
           </div>
 
-          {/* QR si está en formato de imagen válida */}
           {imgSrc && (
             <img
               alt="QR"
