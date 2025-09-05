@@ -1,10 +1,8 @@
-//frontend/components/ChatList.jsx
-
 'use client';
 
 export default function ChatList({ chats = [], activeJid, onSelect }) {
   return (
-    <div className="overflow-y-auto h-full space-y-1 pr-2">
+    <div className="list">
       {chats.map((c, i) => {
         const jid = c?.id || c?.jid || c?.key?.remoteJid || c?.remoteJid || c?.chatId;
         const name = c?.name || c?.pushName || c?.subject || jid;
@@ -14,10 +12,10 @@ export default function ChatList({ chats = [], activeJid, onSelect }) {
           <button
             key={`${jid}-${i}`}
             onClick={() => onSelect(jid)}
-            className={`w-full text-left p-3 rounded-lg ${isActive ? 'bg-gray-800' : 'bg-gray-900 hover:bg-gray-800'}`}
+            className={`list-item ${isActive ? 'active' : ''}`}
           >
-            <div className="text-sm font-medium truncate">{name}</div>
-            {last && <div className="text-xs opacity-70 truncate">{typeof last === 'string' ? last : ''}</div>}
+            <div className="item-title">{name}</div>
+            {last && <div className="item-subtitle">{typeof last === 'string' ? last : ''}</div>}
           </button>
         );
       })}

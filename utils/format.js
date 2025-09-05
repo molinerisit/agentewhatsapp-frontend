@@ -1,5 +1,3 @@
-//frontend/utils/format.js
-
 export function extractText(msg) {
   if (!msg) return '';
   const m = msg.message || msg;

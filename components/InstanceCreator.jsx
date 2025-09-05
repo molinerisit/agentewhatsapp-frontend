@@ -1,5 +1,3 @@
-//frontend/components/InstanceCreator.jsx
-
 'use client';
 import { useState } from 'react';
 import { api } from '../lib/api';
@@ -15,7 +13,6 @@ export default function InstanceCreator({ onCreated }) {
     if (!name.trim()) { setErr('Poné un nombre'); return; }
     setLoading(true);
     try {
-      // crea en Evolution y fuerza connect
       const res = await api.createInstance(name.trim());
       await onCreated?.(name.trim(), res);
       setName('');
@@ -32,21 +29,21 @@ export default function InstanceCreator({ onCreated }) {
   };
 
   return (
-    <form onSubmit={create} className="flex gap-2">
+    <form onSubmit={create} style={{display:'flex', gap:8}}>
       <input
-        className="flex-1 p-2 rounded bg-gray-900 border border-gray-700"
+        className="input"
         placeholder="Nombre de instancia (ej: brand_1)"
         value={name}
         onChange={e => setName(e.target.value)}
       />
       <button
-        className="px-3 py-2 rounded bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50"
+        className="button"
         disabled={loading}
         title="Crear instancia y generar QR"
       >
         {loading ? 'Creando…' : 'Crear + QR'}
       </button>
-      {err && <span className="text-sm text-red-400 ml-2">{err}</span>}
+      {err && <span style={{fontSize:12, color:'#fca5a5', marginLeft:8}}>{err}</span>}
     </form>
   );
 }

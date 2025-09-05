@@ -1,11 +1,9 @@
-//frontend/components/InstancePicker.jsx
-
 'use client';
 
 export default function InstancePicker({ instances = [], value, onChange }) {
   return (
     <select
-      className="w-full p-2 bg-gray-900 border border-gray-700 rounded-lg"
+      className="select"
       value={value || ''}
       onChange={e => onChange(e.target.value)}
     >

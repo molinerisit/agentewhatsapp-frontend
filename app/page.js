@@ -1,4 +1,3 @@
-//frontend/app/page.js
 'use client';
 import { useEffect, useState } from 'react';
 import { io } from 'socket.io-client';
@@ -15,6 +14,7 @@ export default function Home() {
   const [instance, setInstance] = useState('');
   const [state, setState] = useState(null);
   const [qr, setQr] = useState(null);
+  const [pairing, setPairing] = useState(null);
   const [chats, setChats] = useState([]);
   const [activeJid, setActiveJid] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -40,9 +40,10 @@ export default function Home() {
 
     (async () => {
       try {
-        const { state: st, qr: q } = await api.connection(instance);
+        const { state: st, qr: q, pairingCode: pc } = await api.connection(instance + '?fresh=1');
         setState(st);
         setQr(q || null);
+        if (pc) setPairing(String(pc));
       } catch (e) {
         console.error(e);
       }
@@ -100,27 +101,23 @@ export default function Home() {
   };
 
   return (
-    <div className="h-screen grid grid-cols-12 gap-3 p-3">
-      <div className="col-span-3 flex flex-col gap-3">
-        {/* Creador de instancia */}
+    <div className="page-grid">
+      <div className="panel">
         <InstanceCreator
           onCreated={async (name, res) => {
-            // recargamos lista, seleccionamos la nueva e intentamos refrescar estado/qr
             await loadInstances();
             setInstance(name);
             setActiveJid(null);
             setMessages([]);
-
-            // Forzar una consulta de estado para traer QR/pairing
             try {
-              const { state: st, qr: q } = await api.connection(name);
+              const { state: st, qr: q, pairingCode: pc } = await api.connection(name + '?fresh=1');
               setState(st);
               setQr(q || null);
+              if (pc) setPairing(String(pc));
             } catch (e) { console.error(e); }
           }}
         />
 
-        {/* Selector de instancia */}
         <InstancePicker
           instances={instances}
           value={instance}
@@ -131,8 +128,7 @@ export default function Home() {
           }}
         />
 
-        {/* Lista de chats */}
-        <div className="flex-1 min-h-0">
+        <div style={{flex:1, minHeight:0}}>
           <ChatList
             chats={chats}
             activeJid={activeJid}
@@ -144,22 +140,24 @@ export default function Home() {
         </div>
       </div>
 
-      <div className="col-span-9 flex flex-col min-h-0">
+      <div style={{display:'flex', flexDirection:'column', minHeight:0}}>
         <ConnectionBanner
           state={state}
           qr={qr}
+          pairingManual={pairing}
           instance={instance}
           onRefresh={async () => {
             if (!instance) return;
             try {
-              const { state: st, qr: q } = await api.connection(instance);
+              const { state: st, qr: q, pairingCode: pc } = await api.connection(instance);
               setState(st);
               setQr(q || null);
+              if (pc) setPairing(String(pc));
             } catch (e) { console.error(e); }
           }}
         />
 
-        <div className="flex-1 min-h-0">
+        <div style={{flex:1, minHeight:0}}>
           <MessageThread messages={messages} />
         </div>
 

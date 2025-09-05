@@ -1,18 +1,20 @@
-//frontend/components/ConnectionBanner.jsx
-
 'use client';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { api } from '../lib/api';
 import { normalizeQrData } from '../utils/sanitize';
 import QRCode from 'qrcode';
 
-export default function ConnectionBanner({ state, qr, instance, onRefresh }) {
+export default function ConnectionBanner({ state, qr, pairingManual, instance, onRefresh }) {
   const [loading, setLoading] = useState(false);
-  const [connecting, setConnecting] = useState(false); // evita dobles llamados
-  const [localQr, setLocalQr] = useState(null);        // QR que viene de /connect
+  const [connecting, setConnecting] = useState(false);
+  const [localQr, setLocalQr] = useState(null);
   const [generatedUrl, setGeneratedUrl] = useState(null);
+  const [pairing, setPairing] = useState(pairingManual || null);
 
-  // Si ya estamos conectados, limpiamos QR local
+  useEffect(() => {
+    setPairing(pairingManual || null);
+  }, [pairingManual]);
+
   const connected = !!state?.connected;
   useEffect(() => {
     if (connected) {
@@ -21,18 +23,12 @@ export default function ConnectionBanner({ state, qr, instance, onRefresh }) {
     }
   }, [connected]);
 
-  // Preferencias: localQr (si existe) > prop qr > state fields
   const rawQr = useMemo(() => {
     return localQr || qr || state?.qrcode || state?.code || state?.base64 || state?.qr || null;
   }, [localQr, qr, state]);
 
-  const pairing = pairingManual || state?.pairingCode || state?.pairing?.code || null;
-
-
-  // Normalizamos lo que venga
   const { dataUrl, content } = useMemo(() => normalizeQrData(rawQr), [rawQr]);
 
-  // Si solo hay "contenido", generamos PNG
   useEffect(() => {
     let mounted = true;
     (async () => {
@@ -58,22 +54,15 @@ export default function ConnectionBanner({ state, qr, instance, onRefresh }) {
     setConnecting(true);
     setLoading(true);
     try {
-      // Solo pedimos un QR y lo mostramos (NO llamamos onRefresh inmediatamente)
       const res = await api.connect(instance);
-// solo QR real en localQr
-setLocalQr(res?.code || null);
-// guarda pairing por separado (NO como QR)
-if (res?.pairingCode) {
-  // pegá esto junto a los useState de arriba:
-  // const [pairingManual, setPairingManual] = useState(null);
-  setPairingManual(res.pairingCode.toString());
-}
-
+      // Solo QR real en localQr
+      setLocalQr(res?.code || null);
+      // Pairing code guardado por separado
+      if (res?.pairingCode) setPairing(String(res.pairingCode));
     } catch (e) {
       console.error(e);
     } finally {
       setLoading(false);
-      // Dejamos un pequeño cooldown para evitar spam que rote QR
       setTimeout(() => setConnecting(false), 1500);
     }
   };
@@ -81,7 +70,6 @@ if (res?.pairingCode) {
   const doRefresh = async () => {
     setLoading(true);
     try {
-      // Refrescamos solo estado, sin rotar QR
       await onRefresh?.();
     } catch (e) {
       console.error(e);
@@ -91,36 +79,36 @@ if (res?.pairingCode) {
   };
 
   return (
-    <div className={`w-full p-3 ${connected ? 'bg-emerald-600' : 'bg-amber-600'} rounded-xl mb-3`}>
+    <div className={`banner ${connected ? 'ok' : 'warn'}`}>
       {connected ? (
-        <div className="flex items-center gap-3">
-          <p className="text-sm">✅ Conectado a WhatsApp</p>
+        <div className="row">
+          <p style={{fontSize:14}}>✅ Conectado a WhatsApp</p>
           <button
             onClick={doRefresh}
-            className="ml-auto px-3 py-1.5 rounded bg-black/20 hover:bg-black/30 text-sm"
+            className="button spacer"
             disabled={loading}
           >
             {loading ? 'Actualizando…' : 'Refrescar estado'}
           </button>
         </div>
       ) : (
-        <div className="flex items-start gap-3">
-          <div className="flex-1">
-            <p className="text-sm font-medium">📱 Aún no conectado</p>
-            <p className="text-xs opacity-80 mb-2">
+        <>
+          <div style={{flex:1}}>
+            <p style={{fontSize:14, fontWeight:600}}>📱 Aún no conectado</p>
+            <p style={{fontSize:12, opacity:.8, marginBottom:8}}>
               Escaneá el QR o ingresá el pairing code desde WhatsApp → Dispositivos vinculados.
             </p>
 
             {pairing && (
-              <div className="text-sm font-mono mb-2 bg-black/20 inline-block px-2 py-1 rounded">
-                Pairing Code: <span className="font-bold">{pairing}</span>
+              <div className="badge" style={{marginBottom:8}}>
+                Pairing Code: <span style={{fontWeight:700}}>{pairing}</span>
               </div>
             )}
 
-            <div className="flex gap-2">
+            <div style={{display:'flex', gap:8}}>
               <button
                 onClick={doConnect}
-                className="px-3 py-1.5 rounded bg-black/20 hover:bg-black/30 text-sm"
+                className="button"
                 disabled={loading || connecting}
                 title="Generar/Actualizar QR"
               >
@@ -128,7 +116,7 @@ if (res?.pairingCode) {
               </button>
               <button
                 onClick={doRefresh}
-                className="px-3 py-1.5 rounded bg-black/20 hover:bg-black/30 text-sm"
+                className="button"
                 disabled={loading}
               >
                 {loading ? 'Actualizando…' : 'Refrescar estado'}
@@ -136,12 +124,12 @@ if (res?.pairingCode) {
             </div>
 
             {!imgSrc && rawQr && (
-              <div className="mt-2 text-xs opacity-80">
+              <div style={{marginTop:8, fontSize:12, opacity:.8}}>
                 Recibimos el QR pero no como imagen; intentando generarlo…
               </div>
             )}
             {!imgSrc && !rawQr && (
-              <div className="mt-2 text-xs opacity-80">
+              <div style={{marginTop:8, fontSize:12, opacity:.8}}>
                 No hay QR disponible todavía. Tocá “Generar/Actualizar QR”.
               </div>
             )}
@@ -151,10 +139,10 @@ if (res?.pairingCode) {
             <img
               alt="QR"
               src={imgSrc}
-              className="ml-auto w-40 h-40 rounded bg-white"
+              className="qr"
             />
           )}
-        </div>
+        </>
       )}
     </div>
   );
