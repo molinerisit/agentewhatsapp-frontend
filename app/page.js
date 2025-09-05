@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { io } from 'socket.io-client';
 import { api } from '../lib/api';
 import InstancePicker from '../components/InstancePicker';
+import InstanceCreator from '../components/InstanceCreator';
 import ConnectionBanner from '../components/ConnectionBanner';
 import ChatList from '../components/ChatList';
 import MessageThread from '../components/MessageThread';
@@ -18,8 +19,18 @@ export default function Home() {
   const [messages, setMessages] = useState([]);
 
   // cargar instancias
+  const loadInstances = async () => {
+    try {
+      const data = await api.instances();
+      const arr = Array.isArray(data) ? data : (data?.instances || data?.data || []);
+      setInstances(arr);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   useEffect(() => {
-    api.instances().then(setInstances).catch(console.error);
+    loadInstances();
   }, []);
 
   // conectar socket y cargar datos al elegir instancia
@@ -89,19 +100,46 @@ export default function Home() {
 
   return (
     <div className="h-screen grid grid-cols-12 gap-3 p-3">
-      <div className="col-span-3 flex flex-col">
-        <div className="mb-3">
-          <InstancePicker instances={instances} value={instance} onChange={(v) => {
+      <div className="col-span-3 flex flex-col gap-3">
+        {/* Creador de instancia */}
+        <InstanceCreator
+          onCreated={async (name, res) => {
+            // recargamos lista, seleccionamos la nueva e intentamos refrescar estado/qr
+            await loadInstances();
+            setInstance(name);
+            setActiveJid(null);
+            setMessages([]);
+
+            // Forzar una consulta de estado para traer QR/pairing
+            try {
+              const { state: st, qr: q } = await api.connection(name);
+              setState(st);
+              setQr(q || null);
+            } catch (e) { console.error(e); }
+          }}
+        />
+
+        {/* Selector de instancia */}
+        <InstancePicker
+          instances={instances}
+          value={instance}
+          onChange={(v) => {
             setInstance(v);
             setActiveJid(null);
             setMessages([]);
-          }} />
-        </div>
+          }}
+        />
+
+        {/* Lista de chats */}
         <div className="flex-1 min-h-0">
-          <ChatList chats={chats} activeJid={activeJid} onSelect={(jid) => {
-            setActiveJid(jid);
-            setMessages([]);
-          }} />
+          <ChatList
+            chats={chats}
+            activeJid={activeJid}
+            onSelect={(jid) => {
+              setActiveJid(jid);
+              setMessages([]);
+            }}
+          />
         </div>
       </div>
 
@@ -119,9 +157,11 @@ export default function Home() {
             } catch (e) { console.error(e); }
           }}
         />
+
         <div className="flex-1 min-h-0">
           <MessageThread messages={messages} />
         </div>
+
         <Composer onSend={onSend} disabled={!instance || !activeJid} />
       </div>
     </div>
