@@ -1,22 +1,35 @@
 'use client';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../lib/api';
 import { normalizeQrData } from '../utils/sanitize';
 import QRCode from 'qrcode';
 
 export default function ConnectionBanner({ state, qr, instance, onRefresh }) {
   const [loading, setLoading] = useState(false);
+  const [connecting, setConnecting] = useState(false); // evita dobles llamados
+  const [localQr, setLocalQr] = useState(null);        // QR que viene de /connect
+  const [generatedUrl, setGeneratedUrl] = useState(null);
+
+  // Si ya estamos conectados, limpiamos QR local
   const connected = !!state?.connected;
+  useEffect(() => {
+    if (connected) {
+      setLocalQr(null);
+      setGeneratedUrl(null);
+    }
+  }, [connected]);
+
+  // Preferencias: localQr (si existe) > prop qr > state fields
+  const rawQr = useMemo(() => {
+    return localQr || qr || state?.qrcode || state?.code || state?.base64 || state?.qr || null;
+  }, [localQr, qr, state]);
+
   const pairing = state?.pairingCode || state?.pairing?.code || null;
 
-  // Aceptamos cualquier variante posible que pueda venir
-  const rawQr = qr || state?.qrcode || state?.code || state?.base64 || state?.qr || null;
-
-  // Normalizamos: si ya es imagen -> dataUrl; si no -> content
+  // Normalizamos lo que venga
   const { dataUrl, content } = useMemo(() => normalizeQrData(rawQr), [rawQr]);
 
-  // Si no hay dataUrl pero sí "content", generamos PNG en cliente
-  const [generatedUrl, setGeneratedUrl] = useState(null);
+  // Si solo hay "contenido", generamos PNG
   useEffect(() => {
     let mounted = true;
     (async () => {
@@ -38,21 +51,27 @@ export default function ConnectionBanner({ state, qr, instance, onRefresh }) {
   const imgSrc = dataUrl || generatedUrl || null;
 
   const doConnect = async () => {
-    if (!instance) return;
+    if (!instance || connecting) return;
+    setConnecting(true);
     setLoading(true);
     try {
-      await api.connect(instance);     // fuerza connect en backend → Evolution
-      await onRefresh?.();             // vuelve a consultar /connection
+      // Solo pedimos un QR y lo mostramos (NO llamamos onRefresh inmediatamente)
+      const res = await api.connect(instance);
+      // Guardamos el QR que devolvió /connect para no perderlo si llega otro evento
+      setLocalQr(res?.code || res?.pairingCode || null);
     } catch (e) {
       console.error(e);
     } finally {
       setLoading(false);
+      // Dejamos un pequeño cooldown para evitar spam que rote QR
+      setTimeout(() => setConnecting(false), 1500);
     }
   };
 
   const doRefresh = async () => {
     setLoading(true);
     try {
+      // Refrescamos solo estado, sin rotar QR
       await onRefresh?.();
     } catch (e) {
       console.error(e);
@@ -92,10 +111,10 @@ export default function ConnectionBanner({ state, qr, instance, onRefresh }) {
               <button
                 onClick={doConnect}
                 className="px-3 py-1.5 rounded bg-black/20 hover:bg-black/30 text-sm"
-                disabled={loading}
+                disabled={loading || connecting}
                 title="Generar/Actualizar QR"
               >
-                {loading ? 'Generando…' : 'Generar/Actualizar QR'}
+                {loading || connecting ? 'Generando…' : 'Generar/Actualizar QR'}
               </button>
               <button
                 onClick={doRefresh}
@@ -113,7 +132,7 @@ export default function ConnectionBanner({ state, qr, instance, onRefresh }) {
             )}
             {!imgSrc && !rawQr && (
               <div className="mt-2 text-xs opacity-80">
-                No hay QR disponible todavía. Probá “Generar/Actualizar QR”.
+                No hay QR disponible todavía. Tocá “Generar/Actualizar QR”.
               </div>
             )}
           </div>
